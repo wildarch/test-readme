@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -7,14 +8,32 @@ use std::process::{Command, ExitStatus, Stdio};
 use pulldown_cmark::{Event, Parser, Tag};
 use thiserror::Error;
 
-pub fn test_install_md<P: AsRef<Path>>(
-    docker_base: &str,
+#[derive(Debug, Default, Clone)]
+pub struct Options {
     extra_flags: HashMap<String, String>,
+}
+
+impl Options {
+    pub fn flag(&mut self, tool: &str, flag: &str) -> &mut Self {
+        let flag = " ".to_owned() + flag;
+        if let Some(flags) = self.extra_flags.get_mut(tool) {
+            flags.push_str(&flag);
+        } else {
+            // Always None
+            let _ = self.extra_flags.insert(tool.to_owned(), flag.to_owned());
+        }
+        self
+    }
+}
+
+pub fn build_markdown<P: AsRef<Path>, O: Borrow<Options>>(
+    docker_base: &str,
+    options: O,
     install_md: P,
 ) -> Result<(), Error> {
     let install_md_file = File::open(install_md).map_err(Error::InputIo)?;
     let mut commands = parse_commands(install_md_file)?;
-    apply_extra_flags(extra_flags, &mut commands);
+    apply_extra_flags(&options.borrow().extra_flags, &mut commands);
     let dockerfile = Dockerfile {
         base: docker_base.into(),
         commands,
@@ -54,11 +73,11 @@ fn parse_commands(mut file: File) -> Result<Vec<String>, Error> {
     return Ok(commands);
 }
 
-fn apply_extra_flags(flags: HashMap<String, String>, commands: &mut Vec<String>) {
+fn apply_extra_flags(flags: &HashMap<String, String>, commands: &mut Vec<String>) {
     for command in commands.iter_mut() {
         for (prefix, flags) in flags.iter() {
             if command.starts_with(prefix) {
-                command.insert_str(prefix.len(), &(" ".to_owned() + flags));
+                command.insert_str(prefix.len(), &flags);
             }
         }
     }

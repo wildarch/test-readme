@@ -1,8 +1,11 @@
-use test_readme::test_install_md;
+use test_readme::{build_markdown, Options};
 
 #[test]
 fn install_md() {
-    let flags = [("apt-get".into(), "-y".into())].iter().cloned().collect();
-    test_install_md("debian:buster", flags, "tests/install.md")
-        .expect("Failed to build image from instructions");
+    build_markdown(
+        "debian:buster",
+        Options::default().flag("apt-get", "-y"),
+        "tests/install.md",
+    )
+    .expect("Failed to build image from instructions");
 }
